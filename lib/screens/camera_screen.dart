@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-
+import 'package:flutter/material.dart';
+import 'package:hand_landmarker/hand_landmarker.dart';
+import '../hand_tracking/hand_painter.dart';
 import '../camera/camera_service.dart';
+import '../hand_tracking/hand_tracker.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -12,10 +14,14 @@ class CameraScreen extends StatefulWidget {
 
 class _CameraScreenState extends State<CameraScreen> {
   final CameraService _cameraService = CameraService();
+  final HandTracker _handTracker = HandTracker();
+
+  List<Hand> _hands = [];
 
   bool _isInitializing = true;
   String? _error;
-  int _frameCount = 0;
+  int _detectedHands = 0;
+  int _processedFrames = 0;
 
   @override
   void initState() {
@@ -27,16 +33,31 @@ class _CameraScreenState extends State<CameraScreen> {
     try {
       await _cameraService.initialize();
 
-      await _cameraService.startImageStream((CameraImage image) {
-        _frameCount++;
+      _handTracker.initialize();
 
-        if (_frameCount % 30 == 0) {
+      _handTracker.landmarkStream.listen((hands) {
+        if (!mounted) return;
+
+        setState(() {
+          _detectedHands = hands.length;
+          _hands = hands;
+        });
+
+        if (_processedFrames % 30 == 0) {
           debugPrint(
-            'Frames: $_frameCount | '
-                'Resolution: ${image.width}x${image.height} | '
-                'Planes: ${image.planes.length}',
+            'Hands detected: ${hands.length}'
+                '${hands.isNotEmpty ? ' | Landmarks: ${hands.first.landmarks.length}' : ''}',
           );
         }
+      });
+
+      await _cameraService.startImageStream((CameraImage image) {
+        _processedFrames++;
+
+        _handTracker.processFrame(
+          image,
+          _cameraService.controller!.description.sensorOrientation,
+        );
       });
 
       if (!mounted) return;
@@ -57,6 +78,7 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   void dispose() {
     _cameraService.dispose();
+    _handTracker.dispose();
     super.dispose();
   }
 
@@ -92,8 +114,36 @@ class _CameraScreenState extends State<CameraScreen> {
     }
 
     return Scaffold(
-      body: Center(
-        child: CameraPreview(controller),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          CameraPreview(controller),
+
+          IgnorePointer(
+            child: CustomPaint(
+              painter: HandPainter(_hands),
+            ),
+          ),
+
+          Positioned(
+            top: 40,
+            left: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              color: Colors.black54,
+              child: Text(
+                'Hands: $_detectedHands',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
