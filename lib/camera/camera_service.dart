@@ -26,7 +26,28 @@ class CameraService {
     await _controller!.initialize();
   }
 
+  Future<void> startImageStream(
+      void Function(CameraImage image) onImage,
+      ) async {
+    if (_controller == null || !_controller!.value.isInitialized) {
+      throw Exception('Camera is not initialized');
+    }
+
+    if (_controller!.value.isStreamingImages) {
+      return;
+    }
+
+    await _controller!.startImageStream(onImage);
+  }
+
+  Future<void> stopImageStream() async {
+    if (_controller?.value.isStreamingImages ?? false) {
+      await _controller!.stopImageStream();
+    }
+  }
+
   Future<void> dispose() async {
+    await stopImageStream();
     await _controller?.dispose();
     _controller = null;
   }

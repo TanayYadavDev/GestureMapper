@@ -15,6 +15,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
   bool _isInitializing = true;
   String? _error;
+  int _frameCount = 0;
 
   @override
   void initState() {
@@ -25,6 +26,18 @@ class _CameraScreenState extends State<CameraScreen> {
   Future<void> _initializeCamera() async {
     try {
       await _cameraService.initialize();
+
+      await _cameraService.startImageStream((CameraImage image) {
+        _frameCount++;
+
+        if (_frameCount % 30 == 0) {
+          debugPrint(
+            'Frames: $_frameCount | '
+                'Resolution: ${image.width}x${image.height} | '
+                'Planes: ${image.planes.length}',
+          );
+        }
+      });
 
       if (!mounted) return;
 
