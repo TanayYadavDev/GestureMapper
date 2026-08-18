@@ -1,4 +1,3 @@
-
 # gesture_mapper
 
 A new Flutter project.
